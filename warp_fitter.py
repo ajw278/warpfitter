@@ -17,6 +17,9 @@ import numpy as np
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import Matern, ConstantKernel as C
 
+import json
+import subprocess
+from astropy.io import fits
 
 # Base map: only one entry per clean display name
 base_disc_name_map = {
@@ -610,7 +613,7 @@ def plot_combined_velocity_and_profiles(
 	clip=False,
 	molecule='$^{12}$CO',
 	plot_phys=True,
-    show_residual=False,
+        show_residual=False,
 	vmax_dict=vmax_dict_12co,
 	**kwargs
 ):
@@ -2291,7 +2294,25 @@ def plot_warp_vs_alphaS(results_dict, disc_name_map, inc_dbell=True):
 	plt.show()
 
 
-
+def _register_target(target, vmax=0.2):
+	base_disc_name_map.update({target: target})
+	vmax_dict_12co.update({target: vmax})
+	vmax_dict_13co.update({target: 0.5 * vmax})
+	comparison_data.update(
+		{
+			target: {  #Just a placeholder rn
+				"log_Mdot": -1.0,
+				"NAI": 1.0,
+				"NIR_excess": 1.0,
+				"NIR_excess_err": 1.0,
+				"NIR_ulim": False,
+				"alpha_S": 1.0,
+				"alpha_S_err_low": 1.0,
+				"alpha_S_err_high": 1.0,
+			}
+		}
+	)
+	print(base_disc_name_map)
 
 if __name__=='__main__':
 
@@ -2328,19 +2349,14 @@ if __name__=='__main__':
 	parser.add_argument('--residual', action='store_true', help='Show residuals of the velocity field')
 	parser.add_argument('--wcomp', action='store_true', help='Compare warp fits between targets')
 
-
-
-	args = parser.parse_args()
-
-	if not os.path.isdir("velocity_residuals"):
-		print("Error: 'velocity_residuals' directory not found.")
-		exit()
-	os.chdir("velocity_residuals")
+	parser.add_argument("--curone", action="store_true", help="Compare warp fit results with axisymmetry indices and accretion rates from Curone+2025")
+	parser.add_argument("--parfile", action="store_true", help= "Infer target name and parameters from local parfile.json")
+	parser.add_argument("--initdiscminer", action="store_true", help="Make target folders and initialise discminer files from scratch")
 	
+	args = parser.parse_args()
 
 	target_list = [t.strip().lower() for t in args.target.split(',')]
 	co13_suffix = '_13co' if args.co13 else ''
-
 
 	def suffix_name(name, co13=args.co13):
 		"""Return a name with _13co and/or _dbell suffixes based on the molecule and predefined lists."""
@@ -2377,15 +2393,83 @@ if __name__=='__main__':
 	
 	targets = []
 
-	if 'mwc758' in target_list:
+	if args.parfile:
+		
+		with open("parfile.json") as json_file:
+			pars = json.load(json_file)
+
+		best = pars["best_fit"]
+		meta = pars["metadata"]
+		discname = meta["disc"]
+		dpcpar = meta["dpc"]
+		inclpar = best["orientation"]["incl"]
+		mstarpar = best["velocity"]["Mstar"]
+		velsignpar = best["velocity"]["vel_sign"]
+		outerbound = 0.95 * best["intensity"]["Rout"]
+		header = fits.getheader(meta["file_data"])
+		bsize = 0.2 * header["BMAJ"] * 3600  # For radial binning
+		chansp = np.abs(header["CDELT3"])  # Assumed in km/s
+
+		if args.initdiscminer:
+			subprocess.run(
+				f"rm -rf velocity_residuals/azimuthal_velocity_residuals_{discname}",
+				shell=True,
+				check=True,
+			)
+			subprocess.run(
+				f"mkdir -p velocity_residuals/azimuthal_velocity_residuals_{discname}",
+				shell=True,
+				check=True,
+			)
+
+			subprocess.run("discminer channels -mb 1 -so 0", shell=True, check=True)
+			subprocess.run("discminer moments1d", shell=True, check=True)
+			subprocess.run(
+				"discminer azimprof -i 0.2 -o 0.95 -ig 1 -t residuals -w 1 -so 0",
+				shell=True,
+				check=True,
+			)
+			subprocess.run(
+				f"mv azimuthal_velocity_residuals_{discname}.txt velocity_residuals/azimuthal_velocity_residuals_{discname}/",
+				shell=True,
+				check=True,
+			)
+
+		label = suffix_name(discname, co13=args.co13)
+		targets.append(
+			(
+				label,
+				f"azimuthal_velocity_residuals_{label}.txt",
+				dpcpar,
+				bsize,
+				mstarpar,
+				outerbound,  # Outer analysis boundary
+				chansp,  # Channel spacing
+				inclpar,
+				velsignpar,
+				clip_13co(meta["disc"]),
+			)
+		)
+
+		_register_target(discname, vmax=pars["custom"]["vlim"])
+		target_list = [discname]
+
+	if not os.path.isdir("velocity_residuals"):
+		print("Error: 'velocity_residuals' directory not found.")
+		exit()
+
+	os.chdir("velocity_residuals")
+				
+	
+	if 'mwc758' in target_list and not args.parfile:
 		label = suffix_name('mwc758', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 155.9, bsize, 1.40, 270.0, 0.02, 0.337866, 1.0, clip_13co('mwc758')))
+		#(_, _, dpc, beamsize, mstar, Rout, channel_spacing, inclination, velsign)
 
-
-	if 'mwc758_wc' in target_list:
+	if 'mwc758_wc' in target_list and not args.parfile:
 		label = suffix_name('mwc758', co13=args.co13)
 		label = label + '_wc'
 		bsize = 0.15
@@ -2393,14 +2477,14 @@ if __name__=='__main__':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 155.9, bsize, 1.40, 270.0, 0.02, 0.337866, 1.0, clip_13co('mwc758')))
 
-	if 'v4046' in target_list:
+	if 'v4046' in target_list and not args.parfile:
 		label = suffix_name('v4046', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 71.5, bsize, 1.73, np.inf, 0.02, -0.586914, 1.0, clip_13co('v4046')))
 
-	if 'hd34282' in target_list:
+	if 'hd34282' in target_list and not args.parfile:
 		label = suffix_name('hd34282', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
@@ -2408,7 +2492,7 @@ if __name__=='__main__':
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 309.0, bsize, 1.62, 750.0, 0.02, -1.017799, 1.0, clip_13co('hd34282')))
 
 
-	if 'hd34700' in target_list:
+	if 'hd34700' in target_list and not args.parfile:
 		#NOTE THIS IS WRONG!
 		label = suffix_name('hd34700', co13=args.co13)
 		bsize = 0.15
@@ -2417,70 +2501,70 @@ if __name__=='__main__':
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 350.5, bsize, 3.59, np.inf, 0.02, 0.616, 1.0, clip_13co('hd34282')))
 
 
-	if 'aatau' in target_list:
+	if 'aatau' in target_list and not args.parfile:
 		label = suffix_name('aatau', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 135.0, bsize, 0.79, 500.0, 0.02, -1.024645, 1.0, clip_13co('aatau')))
 
-	if 'cqtau' in target_list:
+	if 'cqtau' in target_list and not args.parfile:
 		label = suffix_name('cqtau', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 149.0, bsize, 1.40, np.inf, 0.02, -0.632653, -1.0, clip_13co('cqtau')))
 
-	if 'dmtau' in target_list:
+	if 'dmtau' in target_list and not args.parfile:
 		label = suffix_name('dmtau', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 144.0, bsize, 0.45, 540.0, 0.02, 0.702772, 1.0, clip_13co('dmtau')))
 
-	if 'hd135344' in target_list:
+	if 'hd135344' in target_list and not args.parfile:
 		label = suffix_name('hd135344', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 135.0, bsize, 1.61, np.inf, 0.02, -0.281219, -1.0, clip_13co('hd135344')))
 
-	if 'hd143006' in target_list:
+	if 'hd143006' in target_list and not args.parfile:
 		label = suffix_name('hd143006', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 167.0, bsize, 1.56, np.inf, 0.02, -0.2952398962673608, 1.0, clip_13co('hd143006')))
 
-	if 'j1604' in target_list:
+	if 'j1604' in target_list and not args.parfile:
 		label = suffix_name('j1604', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 145.0, bsize, 1.29, np.inf, 0.02, 0.103879, 1.0, clip_13co('j1604')))
 
-	if 'j1615' in target_list:
+	if 'j1615' in target_list and not args.parfile:
 		label = suffix_name('j1615', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 156.0, bsize, 1.14, 540.0, 0.02, 0.804316, 1.0, clip_13co('j1615')))
 
-	if 'j1842' in target_list:
+	if 'j1842' in target_list and not args.parfile:
 		label = suffix_name('j1842', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 151.0, bsize, 1.07, np.inf, 0.02, 0.687349, -1.0, clip_13co('j1842')))
 
-	if 'j1852' in target_list:
+	if 'j1852' in target_list and not args.parfile:
 		label = suffix_name('j1852', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 147.0, bsize, 1.03, 250.0, 0.02, -0.570361, 1.0, clip_13co('j1852')))
 
-	if 'lkca15' in target_list:
+	if 'lkca15' in target_list and not args.parfile:
 		label = suffix_name('lkca15', co13=args.co13)
 		bsize = 0.15
 		print(label, label.split('_')[-1])
@@ -2488,21 +2572,21 @@ if __name__=='__main__':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 157.0, bsize, 1.17, 700.0, 0.02, 0.880406, -1.0, clip_13co('lkca15')))
 
-	if 'pds66' in target_list:
+	if 'pds66' in target_list and not args.parfile:
 		label = suffix_name('pds66', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 98.0, bsize, 1.28, np.inf, 0.02, -0.556906, -1.0, clip_13co('pds66')))
 
-	if 'sycha' in target_list:
+	if 'sycha' in target_list and not args.parfile:
 		label = suffix_name('sycha', co13=args.co13)
 		bsize = 0.15
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 182.0, bsize, 0.81, 540.0, 0.02, -0.884481, -1.0, clip_13co('sycha')))
 
-	if 'testgrid' in target_list:
+	if 'testgrid' in target_list and not args.parfile:
 		grid_files = sorted(glob.glob("**/azimuthal_velocity_residuals_incl*deg_PA*deg_xc*_yc*.txt", recursive=True))
 		for full_path in grid_files:
 			if '_axisym_' not in full_path:
@@ -2513,7 +2597,7 @@ if __name__=='__main__':
 						label = f"incl{match.group(1)}_PA{match.group(2)}_xc{match.group(3)}_yc{match.group(4)}"
 						targets.append((label, fname, 100.0, 0.15, 1.0, np.inf, 0.02, 0.52, 1.0, False))
 
-	if 'testheight' in target_list:
+	if 'testheight' in target_list and not args.parfile:
 		height_dirs = sorted(glob.glob("azimuthal_velocity_residuals_z*_p*_q*_Rb*", recursive=True))
 		print(height_dirs)
 		for folder in height_dirs:
@@ -2531,7 +2615,7 @@ if __name__=='__main__':
 				label = f"z0={z0}_p={p}_q={q}_Rb={Rb}"
 				targets.append((label, fname,100.0, 0.15, 1.0, np.inf, 0.02, 0.52, 1.0, False))
 
-	if 'testaxi' in target_list:
+	if 'testaxi' in target_list and not args.parfile:
 		axi_files = sorted(glob.glob("**/*_axisym_*.txt", recursive=True))
 		for full_path in axi_files:
 			fname = os.path.basename(full_path)
@@ -2674,10 +2758,10 @@ if __name__=='__main__':
 						results_warp_12co[label] = fit_result
 						results_warp_12co[label]['incl'] = incl
 		
+		if args.plot:
+			plot_warp_amplitude_comparison(results_warp_12co, results_warp_13co)
+			plot_inclination_vs_pa_compare(results_warp_12co, results_warp_13co)
 		
-		plot_warp_amplitude_comparison(results_warp_12co, results_warp_13co)
-		plot_inclination_vs_pa_compare(results_warp_12co, results_warp_13co)
-	
 	if args.beamcomp:
 		results_015 = {}
 		results_030 = {}
@@ -2747,14 +2831,14 @@ if __name__=='__main__':
 				else:
 					print(f"[b015] Skipping {label_015} — file not found.")
 
-
-		plot_beam_amplitude_comparison(results_015, results_030)
+		if args.plot:
+			plot_beam_amplitude_comparison(results_015, results_030)
 
 	#plot_warp_vs_mdot_norm(results_warp, disc_name_map)
 
 	# After warp analysis:
-	
-	compare_warp_to_curone(results_warp, disc_name_map, xaxis_log_psi=True)
-	compare_warp_to_curone(results_warp, disc_name_map, xaxis_log_psi=False)
-
-	plot_inclination_vs_pa(results_warp)
+	if args.curone:
+		compare_warp_to_curone(results_warp, disc_name_map, xaxis_log_psi=True)
+		compare_warp_to_curone(results_warp, disc_name_map, xaxis_log_psi=False)
+	if args.plot:
+		plot_inclination_vs_pa(results_warp)

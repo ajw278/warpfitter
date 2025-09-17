@@ -153,6 +153,32 @@ targets.append((
 
 ---
 
+## Using an existing Discminer model of your target
+
+If you already have a `discminer` model of your target, you can automatically generate the required `azimuthal_velocity_residuals_YYYY.txt` file and fit a warp with `warp_fitter.py` as follows:
+
+1. Place the following files inside your **warpfitter** folder:
+   - A reduced (prototype) **datacube** of the disc.
+   - A `parfile.json` file with disc parameters.
+
+These are typically generated with:  
+   ```bash
+   python prepare_data.py
+   discminer parfile
+   ```
+   (see [Discminer example](https://github.com/andizq/discminer/tree/main/example)).
+
+2. Run `warpfitter`:
+   ```bash
+   python warp_fitter.py --warp --grid --plot --parfile --initdiscminer
+   ```
+   
+- `--parfile` : read target parameters from the existing `parfile.json` and pass them to `warpfitter`.  
+- `--initdiscminer` : compute the required residuals file and move it to `azimuthal_velocity_residuals_YYYY/` (only needed once per target).  
+
+Subsequent runs for the same disc do not require `--initdiscminer`.  
+
+
 ## What the code does 
 
 1. **Gridding (`--grid`)**

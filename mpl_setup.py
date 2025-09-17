@@ -4,7 +4,7 @@ import matplotlib as mpl
 # Set a nice font (you can adjust it to your preferred one)
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = ['Times New Roman', 'DejaVu Serif', 'Bitstream Vera Serif']
-plt.rcParams['text.usetex'] = True
+plt.rcParams['text.usetex'] = False #Disabled this: not working for macOS after pip install latex
 
 # Set a larger font size for better readability
 plt.rcParams['font.size'] = 12
