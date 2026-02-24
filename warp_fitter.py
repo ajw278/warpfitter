@@ -1377,7 +1377,7 @@ def annotate_correlations(ax, x, y, color='black', label=None, ha=None, va=None)
 						bbox=dict(facecolor='white', alpha=0.8, edgecolor='gray'))
 		
 
-def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_dbell=False, xaxis_log_psi=True):
+def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_dbell=False, xaxis_log_psi=True, annotate=False):
 	"""
 	Compare GP warp fit results with axisymmetry index and accretion rate from Curone+ (2025).
 
@@ -1559,20 +1559,23 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
                  xerr=xerrs[mask_incs], fmt='o',
                  color='tab:red', ecolor='gray',elinewidth=1, capsize=0)
 
-		for i, txt in enumerate(labels):
-			if mask_incs[i]:
-				axes[0].annotate(txt, (xvals[i], non_axisym[i]), ha='center', fontsize=9)
+		
+		if annotate:
+			for i, txt in enumerate(labels):
+				if mask_incs[i]:
+					axes[0].annotate(txt, (xvals[i], non_axisym[i]), ha='center', fontsize=9)
 		for i, label in enumerate(labels):
 			if mask_incs[i]:
 				if label in double_bell_labels:
 					axes[0].scatter(xvals[i], non_axisym[i], facecolors='none', edgecolors='red', s=100, linewidths=1.5)
 		axes[0].set_ylabel("NAI")
-		if inc_dbell:
-			annotate_correlations(axes[0], xvals, non_axisym, label='All', ha='right', va='bottom')
-			mask = [lbl not in double_bell_labels for lbl in labels]
-			annotate_correlations(axes[0], np.array(xvals)[mask], np.array(non_axisym)[mask], color='red', label='No DBell', ha='right', va='center')
-		else:
-			annotate_correlations(axes[0], xvals, non_axisym, label=None)
+		if annotate:
+			if inc_dbell:
+				annotate_correlations(axes[0], xvals, non_axisym, label='All', ha='right', va='bottom')
+				mask = [lbl not in double_bell_labels for lbl in labels]
+				annotate_correlations(axes[0], np.array(xvals)[mask], np.array(non_axisym)[mask], color='red', label='No DBell', ha='right', va='center')
+			else:
+				annotate_correlations(axes[0], xvals, non_axisym, label=None)
 
 
 		# Panel 2: log Mdot
@@ -1581,15 +1584,17 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
                  xerr=xerrs[mask_incs], fmt='o',
                  color='tab:blue', ecolor='gray',elinewidth=1, capsize=0)
 
-		for i, txt in enumerate(labels):
-			if mask_incs[i]:
-				axes[1].annotate(txt, (xvals[i], log_Mdots[i]), ha='center', fontsize=9)
+		if annotate:
+			for i, txt in enumerate(labels):
+				if mask_incs[i]:
+					axes[1].annotate(txt, (xvals[i], log_Mdots[i]), ha='center', fontsize=9)
 		axes[1].set_ylabel("$\log \dot{M}_\\mathrm{acc}$  [$M_\\odot$ yr$^{-1}$]")
-		if inc_dbell:
-			annotate_correlations(axes[1], xvals[mask_incs], log_Mdots[mask_incs], label='All', ha='right', va='bottom')
-			annotate_correlations(axes[1], np.array(xvals)[mask&mask_incs], np.array(log_Mdots)[mask&mask_incs], color='red', label='No DBell', ha='right', va='center')
-		else:
-			annotate_correlations(axes[1], xvals[mask_incs], log_Mdots[mask_incs], label=None, ha='right', va='bottom')
+		if annotate:
+			if inc_dbell:
+				annotate_correlations(axes[1], xvals[mask_incs], log_Mdots[mask_incs], label='All', ha='right', va='bottom')
+				annotate_correlations(axes[1], np.array(xvals)[mask&mask_incs], np.array(log_Mdots)[mask&mask_incs], color='red', label='No DBell', ha='right', va='center')
+			else:
+				annotate_correlations(axes[1], xvals[mask_incs], log_Mdots[mask_incs], label=None, ha='right', va='bottom')
 
 		for i, label in enumerate(labels):
 			if mask_incs[i]:
@@ -1602,15 +1607,17 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
                  xerr=xerrs[mask_incs], fmt='o',
                  color='tab:green', ecolor='gray',  elinewidth=1, capsize=0)
 
-		for i, txt in enumerate(labels):
-			if mask_incs[i]:
-				axes[2].annotate(txt, (xvals[i], log_Mdot_norm[i]), ha='center', fontsize=9)
+		if annotate:
+			for i, txt in enumerate(labels):
+				if mask_incs[i]:
+					axes[2].annotate(txt, (xvals[i], log_Mdot_norm[i]), ha='center', fontsize=9)
 		axes[2].set_ylabel("$\log(\\dot{{M}}_\mathrm{acc} / M_*^2)$ [$M_\\odot^{-1}$ yr$^{-1}$]")
-		if inc_dbell:
-			annotate_correlations(axes[2], xvals[mask_incs], log_Mdot_norm[mask_incs], label='All', ha='right', va='bottom')
-			annotate_correlations(axes[2], np.array(xvals)[mask&mask_incs], np.array(log_Mdot_norm)[mask&mask_incs], color='red', label='No DBell', ha='right', va='center')
-		else:
-			annotate_correlations(axes[2], xvals[mask_incs], log_Mdot_norm[mask_incs], label=None, ha='right', va='bottom')
+		if annotate:
+			if inc_dbell:
+				annotate_correlations(axes[2], xvals[mask_incs], log_Mdot_norm[mask_incs], label='All', ha='right', va='bottom')
+				annotate_correlations(axes[2], np.array(xvals)[mask&mask_incs], np.array(log_Mdot_norm)[mask&mask_incs], color='red', label='No DBell', ha='right', va='center')
+			else:
+				annotate_correlations(axes[2], xvals[mask_incs], log_Mdot_norm[mask_incs], label=None, ha='right', va='bottom')
 			
 		for i, label in enumerate(labels):
 			if mask_incs[i]:
@@ -1636,8 +1643,8 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
 				else:  # Include error bar
 					axes[3].errorbar(xvals[i], nir_excess[i], yerr=nir_excess_errs[i],xerr=xerrs[i],
 									fmt='o', color='tab:purple', ecolor='gray',  elinewidth=1,  zorder=2)
-					
-				axes[3].annotate(label, (xvals[i], nir_excess[i]), fontsize=8, ha='center', xytext=(0, 5), textcoords='offset points')
+				if annotate:
+					axes[3].annotate(label, (xvals[i], nir_excess[i]), fontsize=8, ha='center', xytext=(0, 5), textcoords='offset points')
 
 
 		for i, label in enumerate(labels):
@@ -1645,11 +1652,12 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
 				if label in double_bell_labels:
 					axes[3].scatter(xvals[i],  nir_excess[i], facecolors='none', edgecolors='red', s=100, linewidths=1.5)
 
-		if inc_dbell:
-			annotate_correlations(axes[3], xvals[mask_incs], nir_excess[mask_incs], label='All', ha='right', va='bottom')
-			annotate_correlations(axes[3], np.array(xvals)[mask&mask_incs], np.array(nir_excess)[mask&mask_incs], color='red', label='No DBell', ha='right', va='bottom')
-		else:
-			annotate_correlations(axes[3], xvals[mask_incs], nir_excess[mask_incs], label=None, ha='right', va='bottom')
+		if annotate:
+			if inc_dbell:
+				annotate_correlations(axes[3], xvals[mask_incs], nir_excess[mask_incs], label='All', ha='right', va='bottom')
+				annotate_correlations(axes[3], np.array(xvals)[mask&mask_incs], np.array(nir_excess)[mask&mask_incs], color='red', label='No DBell', ha='right', va='bottom')
+			else:
+				annotate_correlations(axes[3], xvals[mask_incs], nir_excess[mask_incs], label=None, ha='right', va='bottom')
 
 		axes[3].set_ylabel("NIR Excess [percent]")
 
@@ -1674,9 +1682,11 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
 		axes[0].errorbar(xvals[mask_incs], non_axisym[mask_incs],
                  xerr=xerrs[mask_incs], fmt='o',
                  color='tab:red', ecolor='gray', elinewidth=1, capsize=0)
-		for i, txt in enumerate(labels):
-			if mask_incs[i]:
-				axes[0].annotate(txt, (xvals[i], non_axisym[i]), ha='center', fontsize=9)
+                 
+		if annotate:
+			for i, txt in enumerate(labels):
+				if mask_incs[i]:
+					axes[0].annotate(txt, (xvals[i], non_axisym[i]), ha='center', fontsize=9)
 		for i, label in enumerate(labels):
 			print(label, mask_incs[i])
 			if mask_incs[i]:
@@ -1696,9 +1706,11 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
 		axes[1].errorbar(xvals[mask_incs], log_Mdots[mask_incs],
                  xerr=xerrs[mask_incs], fmt='o',
                  color='tab:blue', ecolor='gray',  elinewidth=1, capsize=0)
-		for i, txt in enumerate(labels):
-			if mask_incs[i]:
-				axes[1].annotate(txt, (xvals[i], log_Mdots[i]), ha='center', fontsize=9)
+                 
+		if annotate:
+			for i, txt in enumerate(labels):
+				if mask_incs[i]:
+					axes[1].annotate(txt, (xvals[i], log_Mdots[i]), ha='center', fontsize=9)
 		axes[1].set_ylabel("$\log \dot{M}_\\mathrm{acc}$  [$M_\\odot$ yr$^{-1}$]")
 		if inc_dbell:
 			annotate_correlations(axes[1], xvals[mask_incs], log_Mdots[mask_incs], label='All')
@@ -1717,9 +1729,11 @@ def compare_warp_to_curone(results_dict, disc_name_map,stellar_masses=None, inc_
                  xerr=xerrs[mask_incs], fmt='o',
                  color='tab:green', ecolor='gray', elinewidth=1, capsize=0)
 
-		for i, txt in enumerate(labels):
-			if mask_incs[i]:
-				axes[2].annotate(txt, (xvals[i], log_Mdot_norm[i]), ha='center', fontsize=9)
+		
+		if annotate:
+			for i, txt in enumerate(labels):
+				if mask_incs[i]:
+					axes[2].annotate(txt, (xvals[i], log_Mdot_norm[i]), ha='center', fontsize=9)
 		axes[2].set_ylabel("$\log(\\dot{{M}}_\mathrm{acc} / M_*^2)$ [$M_\\odot^{-1}$ yr$^{-1}$]")
 		axes[2].set_xlabel("Tilt amplitude: ${\\beta}_\mathrm{max}$  [deg]")
 		if inc_dbell:
