@@ -3,11 +3,57 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from mpl_setup import *
 
-def load_discdat(fname):
+def load_discdat_old(fname):
 	data  =np.loadtxt(fname, delimiter=' ', dtype=str) 
 
 	return data
 
+
+def load_discdat(fname):
+    rows = []
+
+    with open(fname, "r") as f:
+        for iline, line in enumerate(f, start=1):
+            line = line.strip()
+
+            # Skip blank/comment lines
+            if not line or line.startswith("#"):
+                continue
+
+            # Split on arbitrary whitespace (more robust than delimiter=' ')
+            parts = line.split()
+
+            if len(parts) == 3:
+                # Original format:
+                # radius   phi1,phi2,...   dv1,dv2,...
+                rows.append(parts)
+
+            elif len(parts) > 3:
+                # New format:
+                # radius phi1 phi2 ... phiN dv1 dv2 ... dvN
+                n = len(parts)
+
+                if (n - 1) % 2 != 0:
+                    raise ValueError(
+                        f"Line {iline}: expected 1 + 2*N entries, got {n} entries."
+                    )
+
+                n_az = (n - 1) // 2
+
+                radius = parts[0]
+                phi_vals = parts[1:1 + n_az]
+                dv_vals = parts[1 + n_az:]
+
+                # Re-pack into the old 3-field format so downstream code still works
+                rows.append([radius, ",".join(phi_vals), ",".join(dv_vals)])
+
+            else:
+                raise ValueError(
+                    f"Line {iline}: expected either 3 entries (old format) "
+                    f"or 1+2*N entries (new format), got {len(parts)}."
+                )
+
+    return np.array(rows, dtype=object)
 
 # === BEAM-SAMPLED INTERPOLATION (GRID-BASED) ===
 def beam_sample_highres(R_arr, Phi_arr, dv_interp2d, meta_params, Nbeam=4.0):

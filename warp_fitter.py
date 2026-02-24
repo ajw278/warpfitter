@@ -40,6 +40,7 @@ base_disc_name_map = {
     'pds66': "PDS 66",
     'sycha': "SY Cha",
 	'hd34700': "HD 34700",
+	'twhya': "TW Hya"
 }
 
 # 12CO targets with _dbell suffix
@@ -76,7 +77,7 @@ for key, display in base_disc_name_map.items():
     disc_name_map[f"{key}_13co_dbell_b0p30"] = display
     disc_name_map[f"{key}_13co_b0p30"] = display
 
-vmax_dict_12co = {"MWC 758": 0.3, "V4046 Sgr": 0.1, "AA Tau": 0.3, "CQ Tau": 0.4, "HD 34282": 0.3, "DM Tau": 0.15, "HD 135344B": 0.25, "HD 143006": 0.15, "J1604": 0.075, "J1615": 0.15, "J1842": 0.15, "J1852": 0.1, "LkCa15": 0.25, "PDS 66": 0.1, "SY Cha": 0.3, "HD 34700": 0.7}
+vmax_dict_12co = {"MWC 758": 0.3, "V4046 Sgr": 0.1, "AA Tau": 0.3, "CQ Tau": 0.4, "HD 34282": 0.3, "DM Tau": 0.15, "HD 135344B": 0.25, "HD 143006": 0.15, "J1604": 0.075, "J1615": 0.15, "J1842": 0.15, "J1852": 0.1, "LkCa15": 0.25, "PDS 66": 0.1, "SY Cha": 0.3, "HD 34700": 0.7, "TW Hya": 0.01}
 
 vmax_dict_13co = {"MWC 758": 0.2, "V4046 Sgr": 0.1, "AA Tau": 0.3, "CQ Tau": 0.3, "HD 34282": 0.3, "DM Tau": 0.1, "HD 135344B": 0.1, "HD 143006": 0.1, "J1604": 0.05, "J1615": 0.15, "J1842": 0.15, "J1852": 0.1, "LkCa15": 0.25, "PDS 66": 0.1, "SY Cha": 0.3}
 
@@ -165,12 +166,9 @@ def format_pi(x, _):
 # Convert to cartesian grid
 def plot_velocity_map(dv_grid, radii, phi_highres, meta_params, fname):
 
-	print('plotting velocity map')
-	print(radii.shape, phi_highres.shape, dv_grid.shape)
 	R, Phi = np.meshgrid(radii, phi_highres, indexing="ij")
 	X = R * np.cos(Phi)
 	Y = R * np.sin(Phi)
-	print(radii)
 
 	radii_au = radii
 	unit_label = "au"
@@ -301,7 +299,7 @@ def grid_up(fname_full, phi_highres = np.linspace(-np.pi, np.pi, 257), **kwargs)
 		dv_rescaled =  np.load(f"{fname}_rescaled.npy")
 
 	r_scaled = radii/meta_params['R_out']
-
+	
 	if plot:
 		plot_velocity_map(dv_grid, radii, phi_highres, meta_params, fname=fname)
 
@@ -2599,6 +2597,24 @@ if __name__=='__main__':
 		if label.split('_')[-1]=='b0p30':
 			bsize=0.30
 		targets.append((label, f'azimuthal_velocity_residuals_{label}.txt', 182.0, bsize, 0.81, 540.0, 0.02, -0.884481, -1.0, clip_13co('sycha')))
+
+	if 'twhya' in target_list and not args.parfile:
+		label = 'twhya'  # your unique label; must match your file stem
+		fname = f'azimuthal_velocity_residuals_{label}.txt'
+
+		targets.append((
+			label,          # label (used for folder and plots)
+			fname,          # input filename (inside the same-named folder)
+			60.1,           # dist_pc         (distance in pc)
+			0.18,           # beam_fwhm_arcsec
+			0.82,           # mstar_norm      (M_★ in solar units)
+			160.0,          # R_out_trunc_au  (outer-radius clip for gridding)
+			0.05,           # channel_spacing (km/s)
+			np.deg2rad(5.8),# inclination [radians]; sign matters only for sin/cos use
+			1.0,            # rot_sign        (+1 if clockwise on the sky, −1 otherwise)
+			False           # clip_13co radius or False
+		))
+
 
 	if 'testgrid' in target_list and not args.parfile:
 		grid_files = sorted(glob.glob("**/azimuthal_velocity_residuals_incl*deg_PA*deg_xc*_yc*.txt", recursive=True))
