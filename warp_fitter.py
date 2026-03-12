@@ -2797,6 +2797,11 @@ if __name__=='__main__':
 				results_warp[label]['stellar_mass'] =mstar
 				results_warp[label]['incl'] =incl
 				results_warp[label]['meta_params'] = np.load(folder+'/'+meta_path, allow_pickle=True).item()
+			elif label in disc_name_map:
+				results_warp[label] = fit_result
+				results_warp[label]['stellar_mass'] =mstar
+				results_warp[label]['incl'] =incl
+				results_warp[label]['meta_params'] = np.load(folder+'/'+meta_path, allow_pickle=True).item()
 			else:
 				print(f"'{label}' not found in the disc name map.")
 
