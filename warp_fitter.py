@@ -525,11 +525,11 @@ def fit_gp_from_warp_model(
 	psi_std_log = np.std(np.log10(psi_samples), axis=1)
 	theta_std_log = np.std(np.log10(theta_samples), axis=1)
 	log_psi_samples = np.log10(psi_samples)  # shape: (n_radius, n_samples)
-	psi_ravg_samples = np.trapz(log_psi_samples, r_eval[:, None], axis=0) / (r_eval[-1] - r_eval[0])
+	psi_ravg_samples = np.trapezoid(log_psi_samples, r_eval[:, None], axis=0) / (r_eval[-1] - r_eval[0])
 	psi_ravg = np.mean(psi_ravg_samples)
 	psi_ravg_std = np.std(psi_ravg_samples)
 	log_theta_samples = np.log10(theta_samples)
-	theta_ravg_samples = np.trapz(log_theta_samples, r_eval[:, None], axis=0) / (r_eval[-1] - r_eval[0])
+	theta_ravg_samples = np.trapezoid(log_theta_samples, r_eval[:, None], axis=0) / (r_eval[-1] - r_eval[0])
 	theta_ravg = np.mean(theta_ravg_samples)
 	theta_ravg_std = np.std(theta_ravg_samples)
 
@@ -2305,6 +2305,68 @@ def plot_warp_vs_alphaS(results_dict, disc_name_map, inc_dbell=True):
 	plt.savefig('warp_vs_alphaS.pdf', bbox_inches='tight')
 	plt.show()
 
+def plot_beta_max_vs_abs_inclination(results_dict, annotate=True, logy=False):
+	labels, raw_labels, incls, beta_max, beta_max_err = [], [], [], [], []
+
+	double_bell_labels = [lbl for lbl in results_dict if 'dbell' in lbl.lower()]
+
+	for label, result in results_dict.items():
+		incl = result.get('incl', None)
+		dtheta = result.get('delta_theta', None)
+
+		if incl is None or dtheta is None:
+			continue
+
+		if isinstance(incl, tuple):
+			incl = incl[0]
+
+		raw_labels.append(label)
+		labels.append(disc_name_map.get(label, label))
+		incls.append(np.abs(np.rad2deg(incl)))
+		beta_max.append(np.rad2deg(result['delta_theta']))
+		beta_max_err.append(np.rad2deg(result.get('delta_theta_err', 0.0)))
+
+	incls = np.array(incls)
+	beta_max = np.array(beta_max)
+	beta_max_err = np.array(beta_max_err)
+
+	fig, ax = plt.subplots(figsize=(6, 4.5))
+
+	ax.errorbar(
+		incls, beta_max, yerr=beta_max_err,
+		fmt='o', color='tab:blue', ecolor='gray',
+		elinewidth=1, capsize=0, zorder=2
+	)
+
+	if annotate:
+		texts = []
+		for i, txt in enumerate(labels):
+			texts.append(
+				ax.annotate(
+					txt, (incls[i], beta_max[i]),
+					fontsize=8, ha='center',
+					xytext=(0, 5), textcoords='offset points'
+				)
+			)
+		#adjust_text(texts, ax=ax)
+
+	for i, label in enumerate(raw_labels):
+		if label in double_bell_labels:
+			ax.scatter(
+				incls[i], beta_max[i],
+				facecolors='none', edgecolors='red',
+				s=120, linewidths=1.5, zorder=3
+			)
+
+	ax.set_xlabel("Global inclination: $|i_0|$ [deg]")
+	ax.set_ylabel(r"Tilt amplitude: $\beta_\mathrm{max}$ [deg]")
+
+	if logy:
+		ax.set_yscale('log')
+
+	plt.tight_layout()
+	plt.savefig("beta_max_vs_abs_inclination.pdf", bbox_inches='tight')
+	plt.show()
 
 def _register_target(target, vmax=0.2):
 	base_disc_name_map.update({target: target})
@@ -2346,7 +2408,8 @@ if __name__=='__main__':
 	#practice_2()
 	#exit()
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--plot', action='store_true')
+	parser.add_argument('--plot', action='store_true', help='Make summary scatter/comparison plots')
+	parser.add_argument('--fitplots', action='store_true', help='Make per-disc warp fit figures')
 	parser.add_argument('--reset', action='store_true')
 	parser.add_argument('--Nbeam', type=int, default=1, help='Number of beams to sample')
 	#parser.add_argument('--target', choices=['default', 'mwc758', 'v4046', 'both', 'testgrid', 'testaxi'], default='both')
@@ -2717,7 +2780,7 @@ if __name__=='__main__':
 			fit_result = load_or_run_warp_fit(
 				fname=fname,
 				folder=folder,
-				plot=args.plot,
+				plot=args.fitplots,
 				reset=args.reset,
 				incl=incl,
 				hreset=args.reset,
@@ -2791,6 +2854,7 @@ if __name__=='__main__':
 		if args.plot:
 			plot_warp_amplitude_comparison(results_warp_12co, results_warp_13co)
 			plot_inclination_vs_pa_compare(results_warp_12co, results_warp_13co)
+			
 		
 	if args.beamcomp:
 		results_015 = {}
@@ -2870,5 +2934,7 @@ if __name__=='__main__':
 	if args.curone:
 		compare_warp_to_curone(results_warp, disc_name_map, xaxis_log_psi=True)
 		compare_warp_to_curone(results_warp, disc_name_map, xaxis_log_psi=False)
+	
 	if args.plot:
 		plot_inclination_vs_pa(results_warp)
+		plot_beta_max_vs_abs_inclination(results_warp)
